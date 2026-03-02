@@ -1,9 +1,12 @@
 #!/bin/bash
 set -e
 
-# Ensure /data is owned by openclaw user and has restricted permissions
-chown openclaw:openclaw /data 2>/dev/null || true
+# Ensure /data and OpenClaw state paths are writable by openclaw
+mkdir -p /data/.openclaw/identity /data/workspace
+chown -R openclaw:openclaw /data 2>/dev/null || true
 chmod 700 /data 2>/dev/null || true
+chmod 700 /data/.openclaw 2>/dev/null || true
+chmod 700 /data/.openclaw/identity 2>/dev/null || true
 
 # Persist Homebrew to Railway volume so it survives container rebuilds
 BREW_VOLUME="/data/.linuxbrew"

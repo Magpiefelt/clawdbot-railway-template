@@ -1166,7 +1166,10 @@ app.post("/setup/api/pairing/approve", requireSetupAuth, async (req, res) => {
 });
 
 app.get("/setup/api/devices", requireSetupAuth, async (_req, res) => {
-  const result = await runCmd(OPENCLAW_NODE, clawArgs(["devices", "list", "--json"]));
+  const result = await runCmd(
+    OPENCLAW_NODE,
+    clawArgs(["devices", "list", "--json", "--token", OPENCLAW_GATEWAY_TOKEN]),
+  );
   const raw = result.output || "";
 
   let data = null;
@@ -1207,6 +1210,8 @@ app.post("/setup/api/devices/approve", requireSetupAuth, async (req, res) => {
   } else {
     args.push("--latest");
   }
+
+  args.push("--token", OPENCLAW_GATEWAY_TOKEN);
 
   const result = await runCmd(OPENCLAW_NODE, clawArgs(args));
   return res
