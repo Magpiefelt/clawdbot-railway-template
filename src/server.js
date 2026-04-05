@@ -1200,21 +1200,38 @@ const server = app.listen(PORT, () => {
         log.warn("wrapper", `doctor --fix failed: ${err.message}`);
       }
 
-      // ── Ensure acpx plugin is allowed ──────────────────────────
+      // ── Ensure acpx plugin is enabled ──────────────────────────
+      // The bundled acpx plugin should be enabled via plugins.entries,
+      // NOT via plugins.allow (which can cause config validation bugs
+      // per openclaw/openclaw#52831).
       try {
         const cfgPath = configPath();
         if (fs.existsSync(cfgPath)) {
           const cfg = JSON.parse(fs.readFileSync(cfgPath, "utf8"));
           const plugins = cfg.plugins || {};
-          const allow = plugins.allow || [];
-          if (!allow.includes("acpx")) {
-            allow.push("acpx");
-            plugins.allow = allow;
+
+          // Remove plugins.allow to avoid bug #52831
+          if (plugins.allow && plugins.allow.length > 0) {
+            delete plugins.allow;
+            log.info("wrapper", "removed plugins.allow to avoid config validation bug");
+          }
+
+          // Enable acpx via plugins.entries
+          const entries = plugins.entries || {};
+          const acpx = entries.acpx || {};
+          if (!acpx.enabled) {
+            acpx.enabled = true;
+            acpx.config = acpx.config || {};
+            acpx.config.permissionMode = acpx.config.permissionMode || "auto-approve";
+            entries.acpx = acpx;
+            plugins.entries = entries;
             cfg.plugins = plugins;
             fs.writeFileSync(cfgPath, JSON.stringify(cfg, null, 2));
-            log.info("wrapper", "added acpx to plugins.allow");
+            log.info("wrapper", "enabled acpx plugin via plugins.entries.acpx");
           } else {
-            log.info("wrapper", "acpx already in plugins.allow");
+            cfg.plugins = plugins;
+            fs.writeFileSync(cfgPath, JSON.stringify(cfg, null, 2));
+            log.info("wrapper", "acpx plugin already enabled");
           }
         }
       } catch (err) {
