@@ -1199,6 +1199,28 @@ const server = app.listen(PORT, () => {
       } catch (err) {
         log.warn("wrapper", `doctor --fix failed: ${err.message}`);
       }
+
+      // ── Ensure acpx plugin is allowed ──────────────────────────
+      try {
+        const cfgPath = configPath();
+        if (fs.existsSync(cfgPath)) {
+          const cfg = JSON.parse(fs.readFileSync(cfgPath, "utf8"));
+          const plugins = cfg.plugins || {};
+          const allow = plugins.allow || [];
+          if (!allow.includes("acpx")) {
+            allow.push("acpx");
+            plugins.allow = allow;
+            cfg.plugins = plugins;
+            fs.writeFileSync(cfgPath, JSON.stringify(cfg, null, 2));
+            log.info("wrapper", "added acpx to plugins.allow");
+          } else {
+            log.info("wrapper", "acpx already in plugins.allow");
+          }
+        }
+      } catch (err) {
+        log.warn("wrapper", `failed to configure acpx plugin: ${err.message}`);
+      }
+
       await ensureGatewayRunning();
     })().catch((err) => {
       log.error("wrapper", `failed to start gateway at boot: ${err.message}`);
