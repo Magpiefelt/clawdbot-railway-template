@@ -40,6 +40,28 @@ if [ ! -f /data/workspace/bootstrap.sh ]; then
   else
     echo "[entrypoint] git not available, skipping workspace clone"
   fi
+elif [ -d /data/workspace/.git ] && [ "${OPENCLAW_WORKSPACE_AUTO_PULL:-1}" != "0" ]; then
+  echo "[entrypoint] Workspace git checkout found. Checking for upstream updates..."
+  if [ -n "${GITHUB_TOKEN:-${GH_TOKEN:-}}" ]; then
+    gosu openclaw bash -lc 'git config --global credential.helper store; umask 077; printf "https://oauth2:%s@github.com\n" "${GITHUB_TOKEN:-${GH_TOKEN:-}}" > "$HOME/.git-credentials"' || true
+  fi
+  WORKSPACE_BRANCH=$(gosu openclaw git -C /data/workspace symbolic-ref --quiet --short refs/remotes/origin/HEAD 2>/dev/null | sed 's#^origin/##' || true)
+  if [ -z "$WORKSPACE_BRANCH" ]; then
+    WORKSPACE_BRANCH=$(gosu openclaw git -C /data/workspace rev-parse --abbrev-ref HEAD 2>/dev/null || echo main)
+  fi
+  if [ "$WORKSPACE_BRANCH" = "HEAD" ] || [ -z "$WORKSPACE_BRANCH" ]; then
+    WORKSPACE_BRANCH=main
+  fi
+  if gosu openclaw git -C /data/workspace fetch --depth 1 origin "$WORKSPACE_BRANCH"; then
+    if [ -z "$(gosu openclaw git -C /data/workspace status --porcelain --untracked-files=no)" ]; then
+      gosu openclaw git -C /data/workspace reset --hard "origin/$WORKSPACE_BRANCH" \
+        && echo "[entrypoint] Workspace refreshed from origin/$WORKSPACE_BRANCH"
+    else
+      echo "[entrypoint] WARNING: Workspace has local tracked changes; skipping auto-refresh. Set OPENCLAW_WORKSPACE_AUTO_PULL=0 to silence or resolve the dirty worktree."
+    fi
+  else
+    echo "[entrypoint] WARNING: Workspace fetch failed; continuing with existing /data/workspace"
+  fi
 fi
 
 # ── Workspace bootstrap hook ────────────────────────────────────
